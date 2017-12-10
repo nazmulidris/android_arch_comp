@@ -25,7 +25,7 @@ android {
         versionCode 1
         versionName "1.0"
     }
-    buildToolsVersion '27.0.0'
+    buildToolsVersion '27.0.2'
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -44,4 +44,7 @@ dependencies {
 
     // ViewModel, LiveData
     implementation "android.arch.lifecycle:extensions:1.0.0"
+
+    // ConstraintLayout
+    implementation 'com.android.support.constraint:constraint-layout:1.0.2'
 }

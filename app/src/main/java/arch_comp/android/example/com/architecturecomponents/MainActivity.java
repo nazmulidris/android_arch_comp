@@ -18,12 +18,23 @@ package arch_comp.android.example.com.architecturecomponents;
 
 import android.app.Application;
 import android.arch.lifecycle.AndroidViewModel;
+import android.arch.lifecycle.Lifecycle;
+import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.MutableLiveData;
+import android.arch.lifecycle.OnLifecycleEvent;
 import android.arch.lifecycle.ViewModelProviders;
+import android.content.Context;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
+import android.support.v4.provider.FontRequest;
+import android.support.v4.provider.FontsContractCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -48,7 +59,12 @@ public class MainActivity extends AppCompatActivity {
         dataTextView = findViewById(R.id.data_textview);
         counterTextView = findViewById(R.id.counter_textview);
         setupModelView();
-        attachObservers();
+        attachLiveDataObservers();
+        attachLifecycleObservers(findViewById(R.id.toolbar));
+    }
+
+    private void attachLifecycleObservers(Toolbar toolbar) {
+        getLifecycle().addObserver(new FontLifecycleObserver(this, toolbar));
     }
 
     // Deal with loading state from ViewModel
@@ -57,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
         dataTextView.setText(String.format("Data: %s", stateViewModel.getData()));
     }
 
-    private void attachObservers() {
+    private void attachLiveDataObservers() {
         stateViewModel
                 .getCounter()
                 .observe(
@@ -66,6 +82,66 @@ public class MainActivity extends AppCompatActivity {
                             counterTextView.setText(
                                     String.format("Count: %s", Long.toString(count)));
                         });
+    }
+}
+
+class FontLifecycleObserver implements LifecycleObserver {
+
+    private final Context mContext;
+    private Toolbar mToolbar;
+    private Handler mFontHandler;
+
+    public FontLifecycleObserver(Context context, Toolbar toolbar) {
+        this.mContext = context;
+        this.mToolbar = toolbar;
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    public void downloadFont() {
+        Log.d(Tags.viewmodel.name(), "downloadFont: Running");
+        String query = "name=Open Sans&weight=800&italic=0";
+        FontRequest fontRequest =
+                new FontRequest(
+                        "com.google.android.gms.fonts",
+                        "com.google.android.gms",
+                        query,
+                        R.array.com_google_android_gms_fonts_certs);
+
+        FontsContractCompat.FontRequestCallback fontCallback =
+                new FontsContractCompat.FontRequestCallback() {
+                    @Override
+                    public void onTypefaceRetrieved(Typeface typeface) {
+                        // If we got our font apply it to the toolbar
+                        styleToolbar(typeface);
+                    }
+
+                    @Override
+                    public void onTypefaceRequestFailed(int reason) {
+                        Log.w(Tags.viewmodel.name(), "Failed to fetch Toolbar font: " + reason);
+                    }
+                };
+
+        // Start async fetch on the handler thread
+        FontsContractCompat.requestFont(
+                mContext, fontRequest, fontCallback, getFontHandlerThread());
+    }
+
+    private void styleToolbar(Typeface typeface) {
+        for (int i = 0; i < mToolbar.getChildCount(); i++) {
+            View view = mToolbar.getChildAt(i);
+            if (!(view instanceof TextView)) continue;
+            TextView textView = (TextView) view;
+            textView.setTypeface(typeface);
+        }
+    }
+
+    private Handler getFontHandlerThread() {
+        if (mFontHandler == null) {
+            HandlerThread handlerThread = new HandlerThread("fonts");
+            handlerThread.start();
+            mFontHandler = new Handler(handlerThread.getLooper());
+        }
+        return mFontHandler;
     }
 }
 
